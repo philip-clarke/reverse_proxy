@@ -1,1 +1,7 @@
+%% Intro
 A new erlang application called reverse_proxy
+
+
+%% Testing
+Run tests from the command line like this:
+./rebar eunit
