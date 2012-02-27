@@ -25,9 +25,12 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {
-        lport = 4950, 
-        lsock, % a ListenSocket on which may be passed into gen_tcp accept/1 
-        sock   % a socket() through which we can send/receive data
+        remotePort = 4900, 
+        remoteListenSock, % a ListenSocket on which may be passed into gen_tcp accept/1 
+        remoteSock,   % a socket() through which the remote client can send/receive data
+        localPort = 4950, 
+        localHost = "localhost",
+        localSock   % a socket() through which the local application can send/receive data
     }
 ).
 
@@ -45,7 +48,7 @@
 start_link() ->
         gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-stop(Pid) ->
+stop(_Pid) ->
         gen_server:cast(?SERVER, stop).
 
 %%%===================================================================
@@ -66,8 +69,9 @@ stop(Pid) ->
 init([]) ->
         State = #state{},
         %% TODO creating the socket will be done in the application code later on
-        {ok, LSock} = gen_tcp:listen(State#state.lport, [binary, {active, true}, {packet, 0}]),
-        NewState = State#state{lsock = LSock},
+        {ok, LSock} = gen_tcp:listen(State#state.remotePort, [binary, {active, true}, {packet, 0}, {reuseaddr, true}]),
+        NewState = State#state{remoteListenSock = LSock},
+        io:format("~p~n", [NewState]),
         {ok, NewState, 0}.
 
 %%--------------------------------------------------------------------
@@ -99,7 +103,9 @@ handle_call(_Request, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
-        ok = gen_tcp:close(State#state.sock),
+        ok = gen_tcp:close(State#state.remoteListenSock),
+        close(State#state.remoteSock),
+        close(State#state.localSock),
         {stop, normal, State}.
 
 %%--------------------------------------------------------------------
@@ -113,10 +119,23 @@ handle_cast(stop, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(timeout, State) ->
-        LSock = State#state.lsock,
-        {ok, Sock} = gen_tcp:accept(LSock), %% NB this call will block
-        NewState = State#state{sock = Sock},
-        {noreply, NewState}.
+        LSock = State#state.remoteListenSock,
+        {ok, RemoteSock} = gen_tcp:accept(LSock), %% NB this call will block
+        {ok, LocalSock} = gen_tcp:connect(State#state.localHost, State#state.localPort, [binary, {packet, 0}]),
+        %% now data can be passed between localSock and remoteSock
+        NewState = State#state{remoteSock = RemoteSock, localSock = LocalSock},
+        %io:format("~p~n", [NewState]),
+        {noreply, NewState};
+
+
+handle_info({tcp, Port, Data}, State) ->
+        %io:format("received ~p~n", [Data]),
+        ok = gen_tcp:send(State#state.localSock, Data),
+        {noreply, State};
+
+handle_info({tcp_closed, Sock}, State) ->
+        %io:format("tcp_closed received for ~p~n", [Sock]),
+        {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -129,7 +148,11 @@ handle_info(timeout, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(_Reason, State) ->
+        %% TODO make sure that the sock is not undefined before trying to close
+        close(State#state.remoteListenSock),
+        close(State#state.remoteSock),
+        close(State#state.localSock),
         ok.
 
 %%--------------------------------------------------------------------
@@ -146,3 +169,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+close(Sock) when Sock /= undefined ->
+    gen_tcp:close(Sock);
+close(_Sock) ->
+    ok.

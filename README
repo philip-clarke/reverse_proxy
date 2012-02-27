@@ -17,3 +17,8 @@ Note that after running tests, I get:
 
 This should be fixed by:
 https://github.com/basho/rebar/pull/168
+
+
+%% Debugging
+The rebar.config file has debugging enabled by default.  See also
+http://stackoverflow.com/questions/6808610/start-erlang-with-user-defined-variable-using-rebar

@@ -5,4 +5,4 @@
               {applications,[kernel,stdlib]},
               {mod,{reverse_proxy_app,[]}},
               {env,[]},
-              {modules,[reverse_proxy_app,reverse_proxy_sup]}]}.
+              {modules,[reverse_proxy,reverse_proxy_app,reverse_proxy_sup]}]}.
