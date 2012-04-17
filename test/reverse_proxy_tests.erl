@@ -19,34 +19,40 @@
 
 start_test_() ->
     {"The server can be started and will listen on 4900 for a tcp connection",
-        {setup,
-         fun start/0,
-         fun stop/1,
-         fun (SetupData) ->
-            [test_start(SetupData),
-             test_listening(SetupData)]
-         end}}.
+     {setup,
+      fun start/0,
+      fun stop/1,
+      fun (SetupData) ->
+        [test_start(SetupData),
+         test_listening(SetupData)]
+            end}}.
 
 
 stop_test_() ->
     {"The server can be stopped",
-        {setup,
-         fun start/0,
-         fun test_stop/1}}.
+     {setup,
+      fun start/0,
+      fun test_stop/1}}.
 
 
 forwarding_test_() ->
     {"A remote proxy port will forward traffic to a local port",
-        {setup,
-         fun start/0,
-         fun stop/1,
-         fun test_forwarding/1
-         }}.
+     {setup,
+      fun start/0,
+      fun stop/1,
+      fun test_forwarding/1}}.
 
-%% Traffic to the local port will be routed to the remote proxy connection
+%% a connection to the remote port is accepted if the remote ip address is white listed
 
-%% The server will have a registered name so that it can be contacted without tracking its pid ???
+%% a connection to the remote port is rejected if the remote ip address is not white listed
 
+%% remote packets are silently dropped if there is no local application socket open
+
+%% a connection from the local application is rejected if there is no remote socket open for communication
+
+%% when the remote socket is closed, the application socket will be closed
+
+%% a process related to a remote socket can be restarted
  
  
 %%%%%%%%%%%%%%%%%%%%%%%

@@ -46,7 +46,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-        gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+        gen_server:start_link(?MODULE, [], []).
 
 stop(_Pid) ->
         gen_server:cast(?SERVER, stop).
@@ -69,6 +69,8 @@ stop(_Pid) ->
 init([]) ->
         State = #state{},
         %% TODO creating the socket will be done in the application code later on
+        %% TODO a configuration file should determine which remote ip addresses
+        %% are mapped to which local port
         {ok, LSock} = gen_tcp:listen(State#state.remotePort, [binary, {active, true}, {packet, 0}, {reuseaddr, true}]),
         NewState = State#state{remoteListenSock = LSock},
         io:format("~p~n", [NewState]),
@@ -120,6 +122,7 @@ handle_cast(stop, State) ->
 %%--------------------------------------------------------------------
 handle_info(timeout, State) ->
         LSock = State#state.remoteListenSock,
+        %% TODO but we should also listen on the localPort
         {ok, RemoteSock} = gen_tcp:accept(LSock), %% NB this call will block
         {ok, LocalSock} = gen_tcp:connect(State#state.localHost, State#state.localPort, [binary, {packet, 0}]),
         %% now data can be passed between localSock and remoteSock
@@ -128,12 +131,12 @@ handle_info(timeout, State) ->
         {noreply, NewState};
 
 
-handle_info({tcp, Port, Data}, State) ->
+handle_info({tcp, _Port, Data}, State) ->
         %io:format("received ~p~n", [Data]),
         ok = gen_tcp:send(State#state.localSock, Data),
         {noreply, State};
 
-handle_info({tcp_closed, Sock}, State) ->
+handle_info({tcp_closed, _Sock}, State) ->
         %io:format("tcp_closed received for ~p~n", [Sock]),
         {noreply, State}.
 
