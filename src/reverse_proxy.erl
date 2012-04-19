@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, stop/1]).
+-export([start_link/0, start_link/1, stop/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -23,9 +23,10 @@
          code_change/3]).
 
 -define(SERVER, ?MODULE).
+-define(LISTEN_PORT, 4900).
 
 -record(state, {
-        remotePort = 4900, 
+        remotePort,
         remoteListenSock, % a ListenSocket on which may be passed into gen_tcp accept/1 
         remoteSock,   % a socket() through which the remote client can send/receive data
         localPort = 4950, 
@@ -45,8 +46,14 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
+%% TODO update test cases to accept the RemoteListenSocket
+start_link(RemoteListenSocket) ->
+        gen_server:start_link(?MODULE, RemoteListenSocket, []).
+
 start_link() ->
-        gen_server:start_link(?MODULE, [], []).
+        %% this function is only here for testing purposes
+        {ok, RemoteListenSocket} = gen_tcp:listen(?LISTEN_PORT, [binary, {packet, 0}, {active, true}, {reuseaddr, true}]),
+        start_link(RemoteListenSocket).
 
 stop(_Pid) ->
         gen_server:cast(?SERVER, stop).
@@ -66,15 +73,10 @@ stop(_Pid) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([]) ->
-        State = #state{},
-        %% TODO creating the socket will be done in the application code later on
-        %% TODO a configuration file should determine which remote ip addresses
-        %% are mapped to which local port
-        {ok, LSock} = gen_tcp:listen(State#state.remotePort, [binary, {active, true}, {packet, 0}, {reuseaddr, true}]),
-        NewState = State#state{remoteListenSock = LSock},
-        io:format("~p~n", [NewState]),
-        {ok, NewState, 0}.
+init(RemoteListenSocket) ->
+        State = #state{remoteListenSock = RemoteListenSocket},
+        io:format("~p~n", [State]),
+        {ok, State, 0}.
 
 %%--------------------------------------------------------------------
 %% @private
